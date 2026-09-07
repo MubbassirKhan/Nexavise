@@ -4,6 +4,7 @@ import { Bell, ChevronDown, User, LogOut, Settings, HelpCircle, Menu } from 'luc
 import { clsx } from 'clsx';
 import type { Project } from '../../types';
 import { mockNotifications } from '../../data/mockData';
+import { logout } from '../../lib/api';
 
 interface NavbarProps {
   projects: Project[];
@@ -147,7 +148,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
               <div className="h-px bg-white/6 my-1" />
               <button
-                onClick={() => navigate('/login')}
+                onClick={async () => {
+                  try { await logout(); } catch { /* Clear the local session even if the API is unavailable. */ }
+                  localStorage.removeItem('nexavise_access_token');
+                  localStorage.removeItem('nexavise_user');
+                  navigate('/login');
+                }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
               >
                 <LogOut className="w-4 h-4" /> Sign out

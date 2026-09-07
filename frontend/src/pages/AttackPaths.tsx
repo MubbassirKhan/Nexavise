@@ -189,10 +189,24 @@ const AttackGraph: React.FC<SVGGraphProps> = ({ nodes, edges, selectedNode, onNo
 };
 
 export const AttackPathsPage: React.FC = () => {
-  const [selectedPath, setSelectedPath] = useState<AttackPath>(mockAttackPaths[0]);
+  const [selectedPath, setSelectedPath] = useState<AttackPath | undefined>(mockAttackPaths[0]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
-  const selectedNodeData = selectedPath.nodes.find(n => n.id === selectedNode);
+  const selectedNodeData = selectedPath?.nodes.find(n => n.id === selectedNode);
+
+  if (!selectedPath) {
+    return (
+      <div className="p-6 space-y-5 animate-fade-in">
+        <div>
+          <h1 className="text-xl font-bold text-white">Attack Paths</h1>
+          <p className="text-sm text-slate-400 mt-0.5">No attack paths identified for this project.</p>
+        </div>
+        <div className="bg-navy-800 border border-white/8 rounded-xl p-10 text-center">
+          <p className="text-sm text-slate-400">Run an authorized scan and analyze attack paths to populate this view.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">

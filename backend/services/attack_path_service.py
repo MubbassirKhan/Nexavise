@@ -1,0 +1,9 @@
+from database import new_id, now
+
+
+def build_path(asset: dict, finding: dict) -> dict:
+    internet, asset_node = new_id("internet"), new_id("asset")
+    service, vuln, target = new_id("service"), new_id("vuln"), new_id("target")
+    nodes = [{"id": internet, "type": "internet", "label": "Internet", "x": 20, "y": 120}, {"id": asset_node, "type": "asset", "label": asset["hostname"], "riskScore": finding["riskScore"], "x": 190, "y": 120}, {"id": service, "type": "service", "label": finding.get("affectedService", "service"), "riskScore": finding["riskScore"], "x": 360, "y": 120}, {"id": vuln, "type": "vulnerability", "label": finding["title"], "severity": finding["severity"], "riskScore": finding["riskScore"], "x": 530, "y": 120}, {"id": target, "type": "target", "label": "High Value Asset", "riskScore": finding["riskScore"], "x": 700, "y": 120}]
+    edges = [{"id": new_id("edge"), "source": internet, "target": asset_node, "label": "exposes"}, {"id": new_id("edge"), "source": asset_node, "target": service, "label": "hosts"}, {"id": new_id("edge"), "source": service, "target": vuln, "label": "contains"}, {"id": new_id("edge"), "source": vuln, "target": target, "label": "could reach"}]
+    return {"id": new_id("path"), "projectId": asset["projectId"], "name": f"Internet to {asset['hostname']} via {finding.get('affectedService', 'service')}", "description": "Prioritized path generated from an internet-exposed unresolved finding.", "riskScore": finding["riskScore"], "severity": finding["severity"], "entryPoint": "Internet", "target": "High Value Asset", "hops": 4, "nodes": nodes, "edges": edges, "whyRisky": "The path begins at an internet-facing asset and ends at a high-value target through an unresolved vulnerability.", "mitigations": ["Restrict exposure", "Remediate the finding", "Verify with a follow-up scan"], "discoveredAt": now()}

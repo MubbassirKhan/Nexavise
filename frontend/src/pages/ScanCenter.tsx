@@ -5,6 +5,7 @@ import { ScanStatusBadge } from '../components/ui/Badges';
 import { Card, ProgressBar } from '../components/ui/index';
 import { Modal } from '../components/ui/Modal';
 import { mockScans, mockAssets } from '../data/mockData';
+import { cancelScan, createScan } from '../lib/api';
 
 export const ScanCenterPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -22,10 +23,20 @@ export const ScanCenterPage: React.FC = () => {
 
   const selectedAsset = mockAssets.find(a => a.id === form.assetId);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (step === 'form') { setStep('confirm'); return; }
-    setShowCreateModal(false);
-    setStep('form');
+    if (!selectedAsset || !form.authorized) return;
+    try {
+      const scan = await createScan({
+        projectId: selectedAsset.projectId, assetId: selectedAsset.id, scanner: form.scanner,
+        options: { portRange: form.portRange, timing: form.timing, scanType: form.scanType, templates: form.templates, severity: form.severity },
+      });
+      mockScans.unshift(scan);
+      setShowCreateModal(false);
+      setStep('form');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to start scan');
+    }
   };
 
   const formatDuration = (seconds?: number) => {
@@ -70,7 +81,10 @@ export const ScanCenterPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <ScanStatusBadge status={scan.status} />
-                    <button className="btn-icon">
+                    <button className="btn-icon" onClick={async () => {
+                      await cancelScan(scan.id);
+                      scan.status = 'cancelled';
+                    }}>
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>

@@ -6,6 +6,7 @@ import { Modal, SlideOver } from '../components/ui/Modal';
 import { SearchInput, Select, Card, EmptyState } from '../components/ui/index';
 import { mockAssets } from '../data/mockData';
 import type { Asset, AssetType } from '../types';
+import { createAsset } from '../lib/api';
 
 const TypeIcon: React.FC<{ type: AssetType; className?: string }> = ({ type, className }) => {
   const icons: Record<AssetType, React.ElementType> = {
@@ -225,10 +226,23 @@ export const AttackSurfacePage: React.FC = () => {
           <div className="flex items-center justify-end gap-3">
             <button onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (!confirmAuth) { setConfirmAuth(true); return; }
-                setShowAddModal(false);
-                setConfirmAuth(false);
+                if (!newAsset.hostname.trim() || !newAsset.authorized) return;
+                try {
+                  const created = await createAsset({
+                    projectId: 'proj-1', hostname: newAsset.hostname, ip: newAsset.ip || null,
+                    type: newAsset.type, authorized: true, status: 'active', exposure: 'internet',
+                    technologies: [], ports: [], criticality: 3, tags: [],
+                  });
+                  mockAssets.push(created);
+                  setSelectedAsset(created);
+                  setShowAddModal(false);
+                  setConfirmAuth(false);
+                  setNewAsset({ hostname: '', ip: '', type: 'host', authorized: false });
+                } catch (error) {
+                  window.alert(error instanceof Error ? error.message : 'Unable to add asset');
+                }
               }}
               className={confirmAuth ? 'btn-primary' : 'btn-secondary'}
             >

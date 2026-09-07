@@ -7,6 +7,7 @@ import { SeverityBadge } from '../components/ui/Badges';
 import { RiskScore } from '../components/ui/RiskScore';
 import { Card } from '../components/ui/index';
 import { mockFindings, mockAssets, mockAttackPaths, mockRiskTrend, mockFindingsBySeverity } from '../data/mockData';
+import { createReport } from '../lib/api';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -26,9 +27,12 @@ export const ReportsPage: React.FC = () => {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setGenerating(false);
-    setGenerated(true);
+    try {
+      await createReport('proj-1');
+      setGenerated(true);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const criticalFindings = mockFindings.filter(f => f.severity === 'critical');

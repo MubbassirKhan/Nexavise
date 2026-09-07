@@ -10,6 +10,7 @@ import { RiskScore } from '../components/ui/RiskScore';
 import { Card } from '../components/ui/index';
 import { mockFindings, mockUsers } from '../data/mockData';
 import type { FindingStatus } from '../types';
+import { assignFinding, updateFinding } from '../lib/api';
 
 const STATUS_OPTIONS: { value: FindingStatus; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -210,7 +211,11 @@ export const FindingDetailPage: React.FC = () => {
                       {STATUS_OPTIONS.map(opt => (
                         <button
                           key={opt.value}
-                          onClick={() => { setStatus(opt.value); setShowStatusDrop(false); }}
+                          onClick={async () => {
+                            setStatus(opt.value);
+                            setShowStatusDrop(false);
+                            await updateFinding(finding.id, { status: opt.value });
+                          }}
                           className={clsx(
                             'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/6 transition-colors',
                             status === opt.value && 'bg-cyan-500/10',
@@ -230,7 +235,11 @@ export const FindingDetailPage: React.FC = () => {
           <Card title="Assigned To">
             <select
               value={assignedTo}
-              onChange={e => setAssignedTo(e.target.value)}
+              onChange={async e => {
+                const userId = e.target.value;
+                setAssignedTo(userId);
+                if (userId) await assignFinding(finding.id, userId);
+              }}
               className="input"
             >
               <option value="">Unassigned</option>

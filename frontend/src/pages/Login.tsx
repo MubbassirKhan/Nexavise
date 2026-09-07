@@ -15,18 +15,31 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    if (email === 'demo@nexavise.io' && password === 'demo1234') {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Invalid credentials');
+      }
+      localStorage.setItem('nexavise_access_token', data.accessToken);
+      localStorage.setItem('nexavise_user', JSON.stringify(data.user));
       navigate('/dashboard');
-    } else {
-      setError('Invalid credentials. Use the demo credentials below.');
+    } catch (loginError) {
+      setError(loginError instanceof TypeError
+        ? 'Unable to connect to the backend. Make sure FastAPI is running on port 8000.'
+        : loginError instanceof Error ? loginError.message : 'Unable to sign in');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fillDemo = () => {
-    setEmail('demo@nexavise.io');
-    setPassword('demo1234');
+    setEmail('alex@nexavise.io');
+    setPassword('demo');
     setError('');
   };
 
@@ -187,11 +200,11 @@ export const LoginPage: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-400">Email</p>
-                <code className="text-xs font-mono text-slate-300">demo@nexavise.io</code>
+                <code className="text-xs font-mono text-slate-300">alex@nexavise.io</code>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-400">Password</p>
-                <code className="text-xs font-mono text-slate-300">demo1234</code>
+                <code className="text-xs font-mono text-slate-300">demo</code>
               </div>
             </div>
             <button
