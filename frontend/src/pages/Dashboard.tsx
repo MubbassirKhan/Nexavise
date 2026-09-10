@@ -47,6 +47,13 @@ export const DashboardPage: React.FC = () => {
   const [riskTrend, setRiskTrend] = useState<{ date: string; score: number }[]>([]);
   const [scanError, setScanError] = useState(false);
   const [attackPathError, setAttackPathError] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshToken(value => value + 1);
+    window.addEventListener('scan-completed', refresh);
+    return () => window.removeEventListener('scan-completed', refresh);
+  }, []);
 
   useEffect(() => {
     setScanError(false);
@@ -66,7 +73,7 @@ export const DashboardPage: React.FC = () => {
         setScanError(true);
         setAttackPathError(true);
       });
-  }, [selectedProject.id]);
+  }, [selectedProject.id, refreshToken]);
 
   const criticalFindings = findings.filter(f => f.severity === 'critical' && f.status !== 'resolved');
   const highFindings = findings.filter(f => f.severity === 'high' && f.status !== 'resolved');

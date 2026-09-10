@@ -109,28 +109,28 @@ def _read_response(response: httpx.Response) -> str:
 def _fetch(client: httpx.Client, url: str, host: str) -> HttpObservation | None:
     try:
         response = client.get(url)
+        if response.url.host != host:
+            return None
+        body = _read_response(response)
+        soup = BeautifulSoup(body, "html.parser")
+        links = []
+        for anchor in soup.find_all("a", href=True):
+            candidate = urljoin(str(response.url), anchor["href"])
+            parsed = urlparse(candidate)
+            if parsed.scheme in {"http", "https"} and parsed.hostname == host and candidate not in links:
+                links.append(candidate.split("#", 1)[0])
+            if len(links) >= MAX_DISCOVERED_URLS:
+                break
+        return HttpObservation(
+            title=soup.title.get_text(" ", strip=True)[:200] if soup.title else "",
+            url=str(response.url),
+            status_code=response.status_code,
+            headers={key.lower(): value for key, value in response.headers.items()},
+            body=body,
+            links=links,
+        )
     except httpx.HTTPError:
         return None
-    if response.url.host != host:
-        return None
-    body = _read_response(response)
-    soup = BeautifulSoup(body, "html.parser")
-    links = []
-    for anchor in soup.find_all("a", href=True):
-        candidate = urljoin(str(response.url), anchor["href"])
-        parsed = urlparse(candidate)
-        if parsed.scheme in {"http", "https"} and parsed.hostname == host and candidate not in links:
-            links.append(candidate.split("#", 1)[0])
-        if len(links) >= MAX_DISCOVERED_URLS:
-            break
-    return HttpObservation(
-        title=soup.title.get_text(" ", strip=True)[:200] if soup.title else "",
-        url=str(response.url),
-        status_code=response.status_code,
-        headers={key.lower(): value for key, value in response.headers.items()},
-        body=body,
-        links=links,
-    )
 
 
 def _finding(asset: dict, observation: HttpObservation, finding_type: str, title: str, description: str, severity: str, evidence: str, remediation: str, affected_url: str | None = None) -> dict:

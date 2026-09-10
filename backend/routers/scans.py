@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from database import new_id, now, store
 from deps import accessible_project_ids, current_user, require_project
@@ -8,6 +10,7 @@ from services.security_scanner import ScanTargetError, TargetHostMismatchError, 
 from services.scanner_service import complete_scan
 
 router = APIRouter(prefix="/api/scans", tags=["Scans"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("", status_code=202)
@@ -30,14 +33,13 @@ def create_scan(payload: ScanCreate, background_tasks: BackgroundTasks, user: di
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ScanTargetError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    scan = {"id": new_id("scan"), "projectId": payload.projectId, "assetId": payload.assetId, "assetHostname": asset["hostname"], "targetUrl": target_url or asset.get("url"), "scanner": "Nexavise HTTP Scanner", "status": "queued", "progress": 0, "options": payload.options, "startedAt": now(), "authorized": True, "createdBy": user["name"], "createdById": user["id"]}
+    scan = {"id": new_id("scan"), "projectId": payload.projectId, "assetId": payload.assetId, "assetHostname": asset["hostname"], "targetUrl": target_url or asset.get("url"), "scanner": "Nexavise HTTP Scanner", "status": "running", "progress": 0, "options": payload.options, "startedAt": now(), "authorized": True, "createdBy": user["name"], "createdById": user["id"]}
     try:
         insert_scan(scan, payload.scanner)
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Unable to create scan in Supabase") from exc
-    store.scans.append(scan)
-    store.persist()
     store.log("scan_started", user["id"], {"scanId": scan["id"], "scanner": payload.scanner})
+    logger.info("[SCAN START] scan_id=%s asset_id=%s", scan["id"], scan["assetId"])
     background_tasks.add_task(complete_scan, scan["id"])
     return scan
 

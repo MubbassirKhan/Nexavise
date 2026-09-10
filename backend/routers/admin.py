@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from database import store
 from deps import require_admin
 
@@ -12,7 +12,7 @@ def users(user: dict = Depends(require_admin)):
         return [{"id": row["id"], "name": row.get("name", ""), "email": row.get("email", ""),
                  "organizationId": row.get("organization_id"), "role": (row.get("roles") or {}).get("name")}
                 for row in (response.data or [])]
-    return [{key: value for key, value in item.items() if key != "password"} for item in store.users]
+    raise HTTPException(status_code=503, detail="Supabase is not configured")
 
 
 @router.get("/audit-logs")

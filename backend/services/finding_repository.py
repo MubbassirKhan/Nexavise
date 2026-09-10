@@ -69,6 +69,12 @@ def get_finding(finding_id: str) -> dict | None:
 def persist_finding(finding: dict) -> dict:
     if store.supabase is None:
         raise RuntimeError("Supabase is not configured")
+    existing_response = store.supabase.table("findings").select("id,status,discovered_at").eq("asset_id", finding["assetId"]).eq("title", finding["title"]).limit(1).execute()
+    existing = existing_response.data[0] if existing_response.data else None
+    if existing:
+        finding["id"] = existing["id"]
+        finding["status"] = existing.get("status", finding.get("status", "open"))
+        finding["discoveredAt"] = existing.get("discovered_at") or finding.get("discoveredAt")
     vulnerability = store.supabase.table("vulnerabilities").select("id").eq("title", finding["title"]).limit(1).execute()
     vulnerability_id = vulnerability.data[0]["id"] if vulnerability.data else new_id("vuln")
     if not vulnerability.data:

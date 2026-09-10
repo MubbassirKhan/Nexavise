@@ -40,8 +40,11 @@ def list_projects(user: dict = Depends(current_user)):
 @router.post("", status_code=201)
 def create_project(payload: ProjectCreate, user: dict = Depends(require_admin)):
     project = {"id": new_id("proj"), **payload.model_dump(), "createdAt": now()}
-    store.projects.append(project)
-    store.persist()
+    if store.supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured")
+    response = store.supabase.table("projects").insert({"id": project["id"], "organization_id": user.get("organizationId"), "name": project["name"], "description": project.get("description", ""), "created_at": project["createdAt"]}).execute()
+    if not response.data:
+        raise HTTPException(status_code=503, detail="Supabase did not return the created project")
     store.log("project_added", user["id"], {"projectId": project["id"]})
     return with_counts(project)
 
@@ -59,9 +62,11 @@ def get_project(project_id: str, user: dict = Depends(current_user)):
 
 @router.patch("/{project_id}")
 def patch_project(project_id: str, payload: ProjectPatch, user: dict = Depends(require_admin)):
-    project = next((item for item in store.projects if item["id"] == project_id), None)
-    if not project:
+    require_project(project_id, user)
+    changes = payload.model_dump(exclude_unset=True)
+    payload_db = {key: changes[key] for key in ("name", "description") if key in changes}
+    response = store.supabase.table("projects").update(payload_db).eq("id", project_id).execute()
+    if not response.data:
         raise HTTPException(status_code=404, detail="Project not found")
-    project.update({key: value for key, value in payload.model_dump(exclude_unset=True).items() if value is not None})
-    store.persist()
-    return with_counts(project)
+    row = response.data[0]
+    return with_counts({"id": row["id"], "name": row.get("name", ""), "description": row.get("description", ""), "organizationId": row.get("organization_id"), "createdAt": row.get("created_at")})

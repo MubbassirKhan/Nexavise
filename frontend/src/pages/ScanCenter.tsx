@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, ScanLine, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ScanStatusBadge } from '../components/ui/Badges';
@@ -20,6 +20,7 @@ export const ScanCenterPage: React.FC = () => {
   const [error, setError] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [step, setStep] = useState<'form' | 'confirm'>('form');
+  const previousStatuses = useRef<Record<string, Scan['status']>>({});
   const [form, setForm] = useState({
     assetId: '',
     scanner: 'nuclei',
@@ -33,6 +34,17 @@ export const ScanCenterPage: React.FC = () => {
 
   const selectedAsset = assets.find(a => a.id === form.assetId);
 
+  const applyScans = (items: Scan[]) => {
+    const completedScan = items.some(scan =>
+      previousStatuses.current[scan.id] &&
+      ['completed', 'failed', 'cancelled'].includes(scan.status) &&
+      ['running', 'pending'].includes(previousStatuses.current[scan.id]),
+    );
+    previousStatuses.current = Object.fromEntries(items.map(scan => [scan.id, scan.status]));
+    setScans(items);
+    if (completedScan) window.dispatchEvent(new Event('scan-completed'));
+  };
+
   const loadScanData = async () => {
     setIsLoading(true);
     setError(false);
@@ -41,7 +53,7 @@ export const ScanCenterPage: React.FC = () => {
         getScans(selectedProject.id),
         getAssets(selectedProject.id),
       ]);
-      setScans(scanItems);
+      applyScans(scanItems);
       setAssets(assetItems);
     } catch {
       setScans([]);
@@ -52,10 +64,23 @@ export const ScanCenterPage: React.FC = () => {
     }
   };
 
+  const refreshScans = async () => {
+    try {
+      applyScans(await getScans(selectedProject.id));
+    } catch { }
+  };
+
   useEffect(() => {
+    previousStatuses.current = {};
     setForm(previous => ({ ...previous, assetId: '', authorized: false }));
     void loadScanData();
   }, [selectedProject.id]);
+
+  useEffect(() => {
+    if (!scans.some(scan => scan.status === 'running' || scan.status === 'pending')) return;
+    const interval = window.setInterval(() => void refreshScans(), 3000);
+    return () => window.clearInterval(interval);
+  }, [scans, selectedProject.id]);
 
   const handleCreate = async () => {
     if (step === 'form') { setStep('confirm'); return; }
@@ -131,7 +156,7 @@ export const ScanCenterPage: React.FC = () => {
                     <button className="btn-icon" onClick={async () => {
                       try {
                         await cancelScan(scan.id);
-                        await loadScanData();
+                        await refreshScans();
                       } catch {
                         setError(true);
                       }

@@ -200,7 +200,14 @@ export const AttackPathsPage: React.FC = () => {
   const [hasError, setHasError] = useState(false);
   const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const selectedPath = attackPaths.find(path => path.id === selectedPathId) ?? attackPaths[0];
+
+  useEffect(() => {
+    const refresh = () => setRefreshToken(value => value + 1);
+    window.addEventListener('scan-completed', refresh);
+    return () => window.removeEventListener('scan-completed', refresh);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -225,7 +232,7 @@ export const AttackPathsPage: React.FC = () => {
       });
 
     return () => { active = false; };
-  }, [selectedProject.id]);
+  }, [selectedProject.id, refreshToken]);
 
   const selectedNodeData = selectedPath?.nodes.find(n => n.id === selectedNode);
 

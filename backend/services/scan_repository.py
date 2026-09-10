@@ -1,5 +1,6 @@
 from database import store
 from services.asset_repository import list_assets
+from datetime import datetime, timezone
 
 
 def _map_scan(row: dict) -> dict:
@@ -21,6 +22,15 @@ def _map_scan(row: dict) -> dict:
     scan.setdefault("options", {})
     scan.setdefault("progress", 100 if scan.get("status") == "completed" else 0)
     scan.setdefault("authorized", True)
+    started_at = scan.get("startedAt")
+    completed_at = scan.get("completedAt")
+    if started_at and completed_at:
+        try:
+            started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+            scan["duration"] = max(0, int((completed - started).total_seconds()))
+        except ValueError:
+            pass
     return scan
 
 
@@ -63,7 +73,7 @@ def insert_scan(scan: dict, scanner_name: str) -> dict:
         "project_id": scan["projectId"],
         "asset_id": scan["assetId"],
         "scanner": scanner_name,
-        "status": "pending",
+        "status": "running",
         "progress": 0,
         "options": scan.get("options", {}),
         "authorized": True,
@@ -71,6 +81,13 @@ def insert_scan(scan: dict, scanner_name: str) -> dict:
         "created_by": None,
     }
     response = store.supabase.table("scans").insert(payload).execute()
+    store.supabase.table("scan_jobs").insert({
+        "id": f"job-{scan['id']}",
+        "scan_id": scan["id"],
+        "status": "running",
+        "worker_name": "fastapi-background-task",
+        "created_at": scan["startedAt"],
+    }).execute()
     return _map_scan(response.data[0]) if response.data else scan
 
 
@@ -83,4 +100,14 @@ def update_scan(scan_id: str, values: dict) -> None:
         "newFindings": "new_findings",
     }
     payload = {mapping.get(key, key): value for key, value in values.items() if key not in {"targetUrl", "result", "error"}}
-    store.supabase.table("scans").update(payload).eq("id", scan_id).execute()
+    if payload:
+        store.supabase.table("scans").update(payload).eq("id", scan_id).execute()
+    job_values = {}
+    if "status" in values:
+        job_values["status"] = values["status"]
+    if "error" in values:
+        job_values["error_message"] = values["error"]
+    if values.get("status") in {"completed", "failed", "cancelled"}:
+        job_values["finished_at"] = values.get("completedAt")
+    if job_values:
+        store.supabase.table("scan_jobs").update(job_values).eq("scan_id", scan_id).execute()

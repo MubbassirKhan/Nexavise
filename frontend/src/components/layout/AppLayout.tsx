@@ -41,6 +41,20 @@ export const AppLayout: React.FC = () => {
     });
   }, [selectedProject]);
 
+  useEffect(() => {
+    const refreshProjectData = () => {
+      if (!selectedProject?.id) return;
+      Promise.all([getAssets(selectedProject.id), getFindings(selectedProject.id)])
+        .then(([assetItems, findingItems]) => {
+          setAssets(assetItems);
+          setFindings(findingItems);
+        })
+        .catch(() => setLoadError(true));
+    };
+    window.addEventListener('scan-completed', refreshProjectData);
+    return () => window.removeEventListener('scan-completed', refreshProjectData);
+  }, [selectedProject]);
+
   if (!storedUser) return <Navigate to="/login" replace />;
 
   if (!selectedProject) {

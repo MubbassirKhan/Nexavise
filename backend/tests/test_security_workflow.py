@@ -3,9 +3,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from database import store
 from main import app
 from services.risk_engine import score_finding
-from services.security_scanner import ScanTargetError, normalize_hostname, validate_target
+from services.scanner_service import complete_scan
+from services.security_scanner import HttpObservation, ScanTargetError, normalize_hostname, validate_target
 
 
 class SecurityWorkflowTests(unittest.TestCase):
@@ -76,6 +78,47 @@ class SecurityWorkflowTests(unittest.TestCase):
             json={"projectId": "missing", "assetId": "missing", "scanner": "nuclei", "options": {}},
         )
         self.assertEqual(response.status_code, 404)
+
+    @patch("services.scanner_service.generate_attack_paths")
+    @patch("services.scanner_service.persist_scan_result")
+    @patch("services.scanner_service.persist_risk_score")
+    @patch("services.scanner_service.persist_finding", side_effect=lambda finding: finding)
+    @patch("services.scanner_service.update_scan")
+    @patch("services.scanner_service.scan_asset")
+    @patch("services.scanner_service.get_asset")
+    @patch("services.scanner_service.get_scan")
+    def test_scan_worker_persists_successful_lifecycle(self, get_scan, get_asset, scan_asset, update_scan, persist_finding, persist_risk_score, persist_scan_result, generate_attack_paths):
+        scan = {"id": "scan-test", "projectId": "proj-1", "assetId": "asset-test", "targetUrl": "https://example.com", "createdById": "u1"}
+        asset = {"id": "asset-test", "projectId": "proj-1", "hostname": "example.com", "url": "https://example.com", "authorized": True, "exposure": "internet", "criticality": 3}
+        observation = HttpObservation("Example", "https://example.com", 200, {}, "<html></html>", [])
+        raw_finding = {"findingType": "missing-csp", "title": "Missing CSP", "description": "CSP is absent", "severity": "low", "evidence": "header absent", "remediation": "Add CSP", "scanner": "Nexavise HTTP Scanner"}
+        get_scan.return_value = scan
+        get_asset.return_value = asset
+        scan_asset.return_value = (observation, [raw_finding])
+
+        with patch.object(store, "findings", []), patch.object(store, "persist"), patch.object(store, "log"):
+            complete_scan("scan-test")
+
+        self.assertEqual(update_scan.call_args_list[-1].args[1]["status"], "completed")
+        persist_finding.assert_called_once()
+        persist_risk_score.assert_called_once()
+        persist_scan_result.assert_called_once()
+        generate_attack_paths.assert_called_once_with("proj-1")
+
+    @patch("services.scanner_service.update_scan")
+    @patch("services.scanner_service.scan_asset", side_effect=RuntimeError("scanner connection reset"))
+    @patch("services.scanner_service.get_asset")
+    @patch("services.scanner_service.get_scan")
+    def test_scan_worker_persists_actual_failure(self, get_scan, get_asset, scan_asset, update_scan):
+        get_scan.return_value = {"id": "scan-failed", "projectId": "proj-1", "assetId": "asset-test", "targetUrl": "https://example.com"}
+        get_asset.return_value = {"id": "asset-test", "projectId": "proj-1", "hostname": "example.com", "authorized": True}
+
+        with patch.object(store, "persist"), patch.object(store, "log"):
+            complete_scan("scan-failed")
+
+        failure = update_scan.call_args_list[-1].args[1]
+        self.assertEqual(failure["status"], "failed")
+        self.assertIn("scanner connection reset", failure["error"])
 
 
 if __name__ == "__main__":

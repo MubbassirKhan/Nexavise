@@ -51,8 +51,8 @@ def enrich(asset: dict) -> dict:
     result["technologies"] = asset.get("technologies", [])
     try:
         findings = [f for f in list_supabase_findings(asset_id=asset["id"]) if f["status"] != "resolved"]
-    except TypeError:
-        findings = [f for f in store.findings if f["assetId"] == asset["id"] and f["status"] != "resolved"]
+    except Exception:
+        findings = []
     result["findingCount"] = len(findings)
     for severity in ("critical", "high", "medium", "low"):
         result[f"{severity}Count"] = sum(f["severity"] == severity for f in findings)
