@@ -3,11 +3,19 @@ from database import store
 
 
 def current_user(x_user_id: str | None = Header(default=None)) -> dict:
-    user_id = x_user_id or "u1"
-    user = next((item for item in store.users if item["id"] == user_id), None)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unknown user")
-    return {key: value for key, value in user.items() if key != "password"}
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id header is required")
+    user_id = x_user_id
+    if store.supabase is not None:
+        response = store.supabase.table("users").select("*, roles(name)").eq("id", user_id).limit(1).execute()
+        if not response.data:
+            raise HTTPException(status_code=401, detail="Unknown user")
+        row = response.data[0]
+        role = row.get("roles") or {}
+        return {"id": row["id"], "name": row.get("name", ""), "email": row.get("email", ""),
+                "role": role.get("name") if isinstance(role, dict) else "analyst",
+                "organizationId": row.get("organization_id")}
+    raise HTTPException(status_code=503, detail="Supabase is not configured")
 
 
 def require_admin(user: dict = Depends(current_user)) -> dict:
@@ -23,7 +31,20 @@ def require_analyst_or_admin(user: dict = Depends(current_user)) -> dict:
 
 
 def require_project(project_id: str, user: dict) -> dict:
-    project = next((item for item in store.projects if item["id"] == project_id), None)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    if store.supabase is not None:
+        response = store.supabase.table("projects").select("*").eq("id", project_id).limit(1).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        row = response.data[0]
+        if row.get("organization_id") and row["organization_id"] != user.get("organizationId"):
+            raise HTTPException(status_code=403, detail="Project is outside the user's organization")
+        return {"id": row["id"], "name": row.get("name", ""), "description": row.get("description", ""),
+                "organizationId": row.get("organization_id"), "createdAt": row.get("created_at")}
+    raise HTTPException(status_code=503, detail="Supabase is not configured")
+
+
+def accessible_project_ids(user: dict) -> list[str]:
+    if store.supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured")
+    response = store.supabase.table("projects").select("id").eq("organization_id", user.get("organizationId")).execute()
+    return [row["id"] for row in (response.data or [])]

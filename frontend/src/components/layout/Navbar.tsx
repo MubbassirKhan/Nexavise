@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, User, LogOut, Settings, HelpCircle, Menu } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Project } from '../../types';
-import { mockNotifications } from '../../data/mockData';
 import { logout } from '../../lib/api';
 
 interface NavbarProps {
@@ -22,7 +21,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showNotifs, setShowNotifs] = useState(false);
   const navigate = useNavigate();
 
-  const unreadCount = mockNotifications.filter(n => !n.read).length;
+  const notifications: Array<{ id: string; read: boolean; type: string; title: string; message: string; timestamp: string }> = [];
+  const unreadCount = 0;
 
   return (
     <header className="h-14 bg-navy-900/90 border-b border-white/8 flex items-center px-4 gap-4 sticky top-0 z-20 backdrop-blur-sm">
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-xs text-slate-500">{unreadCount} unread</span>
               </div>
               <div className="max-h-72 overflow-y-auto">
-                {mockNotifications.map(n => (
+                {notifications.map(n => (
                   <div key={n.id} className={clsx('px-4 py-3 border-b border-white/5 hover:bg-white/4 transition-colors', !n.read && 'bg-blue-500/5')}>
                     <div className="flex items-start gap-3">
                       <div className={clsx(

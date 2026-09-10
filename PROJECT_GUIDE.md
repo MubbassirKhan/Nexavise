@@ -16,14 +16,14 @@ It helps security teams:
 - Generate executive and technical security reports.
 - Manage users, integrations, settings, and audit logs.
 
-This repository is an MVP/demo application. The scanner uses safe mock results rather than performing real exploitation or destructive security testing.
+This repository is an MVP application. Its scanner performs bounded, passive HTTP checks and never performs exploitation or destructive security testing.
 
 ## 2. How the Project Works
 
 The application has two main parts:
 
 ```text
-React frontend -> FastAPI backend -> DemoStore or future Supabase database
+React frontend -> FastAPI backend -> persistent local repository or configured Supabase database
 ```
 
 ### End-to-end security workflow
@@ -114,7 +114,8 @@ The backend is in the `backend/` directory and is built with FastAPI.
 
 - `backend/main.py`: Creates the FastAPI application and registers routers.
 - `backend/config.py`: Loads environment configuration.
-- `backend/database.py`: Provides the in-memory `DemoStore` and optional Supabase client setup.
+- `backend/database.py`: Provides persistent local development storage and optional Supabase client setup.
+- `backend/services/security_scanner.py`: Safe Python HTTP scanner with SSRF checks, response limits, and evidence-backed findings.
 - `backend/deps.py`: Authentication lookup and authorization dependencies.
 - `backend/schemas.py`: Pydantic request models and domain literals.
 - `backend/routers/`: HTTP API route modules.
@@ -241,11 +242,11 @@ The process of finding or enriching asset information, such as services, technol
 
 ### Scan
 
-A security check performed against an authorized asset. The MVP creates safe mock scan results in a background task.
+A bounded passive HTTP assessment performed against an authorized asset. The backend uses `httpx` and HTML parsing instead of external Nmap or Nuclei binaries.
 
 ### Scanner
 
-The scanning engine type. The demo supports `nmap` and `nuclei` as scanner labels, but does not execute real tools by default.
+The backend scanner is named `Nexavise HTTP Scanner`. The UI may retain its existing scanner selector for compatibility, but no external scanner application is executed.
 
 ### Finding
 
@@ -314,7 +315,7 @@ Data in `DemoStore` is lost when the backend restarts.
 
 ### Supabase
 
-The planned hosted PostgreSQL platform. The project includes a Supabase client setup and SQL schema, but the current routers still use `DemoStore` for most operations.
+The configured hosted PostgreSQL option. The current local development fallback is a persistent SQLite collection store so API data survives refreshes and backend restarts without requiring external infrastructure.
 
 ### Repository layer
 
@@ -368,7 +369,7 @@ Current limitations include:
 - The access token is only a user ID, not a signed JWT.
 - The default backend behavior uses an in-memory store.
 - Data resets when the backend restarts.
-- Supabase persistence is not fully wired into the routers.
+- Supabase persistence requires valid `SUPABASE_URL` and `SUPABASE_KEY` configuration and a repository migration for production deployment.
 - Real Nmap and Nuclei execution is disabled.
 - Rate limiting and refresh tokens are not implemented.
 - Organization-level row security is not fully implemented.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Users, Shield, Plug, FileText, Settings, Plus,
   Trash2, Edit,
@@ -6,7 +6,18 @@ import {
 import { clsx } from 'clsx';
 import { Card } from '../components/ui/index';
 import { Modal } from '../components/ui/Modal';
-import { mockUsers, mockAuditLogs } from '../data/mockData';
+import type { User } from '../types';
+import { getAuditLogs, getUsers } from '../lib/api';
+
+interface AuditLog {
+  id: string;
+  user?: string;
+  action: string;
+  target?: string;
+  ip?: string;
+  timestamp?: string;
+  createdAt?: string;
+}
 
 type AdminTab = 'users' | 'integrations' | 'audit' | 'settings';
 
@@ -41,6 +52,15 @@ export const AdminPage: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('analyst');
+  const [users, setUsers] = useState<User[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    Promise.all([getUsers(), getAuditLogs()])
+      .then(([userItems, logItems]) => { setUsers(userItems); setAuditLogs(logItems as unknown as AuditLog[]); })
+      .catch(() => setHasError(true));
+  }, []);
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">
@@ -48,6 +68,7 @@ export const AdminPage: React.FC = () => {
       <div>
         <h1 className="text-xl font-bold text-white">Administration</h1>
         <p className="text-sm text-slate-400 mt-0.5">Manage users, integrations, and platform settings</p>
+        {hasError && <p className="text-sm text-red-300 mt-2">Unable to load administration data. Please check the backend connection.</p>}
       </div>
 
       {/* Tabs */}
@@ -76,7 +97,7 @@ export const AdminPage: React.FC = () => {
       {activeTab === 'users' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">{mockUsers.length} members in your organization</p>
+            <p className="text-sm text-slate-400">{users.length} members in your organization</p>
             <button onClick={() => setShowInviteModal(true)} className="btn-primary">
               <Plus className="w-4 h-4" /> Invite User
             </button>
@@ -93,7 +114,7 @@ export const AdminPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockUsers.map(user => (
+                {users.map(user => (
                   <tr key={user.id} className="table-row">
                     <td className="table-cell">
                       <div className="flex items-center gap-3">
@@ -213,27 +234,27 @@ export const AdminPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockAuditLogs.map(log => (
+                {auditLogs.map(log => (
                   <tr key={log.id} className="table-row">
                     <td className="table-cell">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 bg-cyan-600/20 border border-cyan-500/20 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-cyan-400">{log.user.charAt(0)}</span>
+                          <span className="text-xs font-bold text-cyan-400">{(log.user || 'System').charAt(0)}</span>
                         </div>
-                        <span className="text-sm text-white">{log.user}</span>
+                        <span className="text-sm text-white">{log.user || 'System'}</span>
                       </div>
                     </td>
                     <td className="table-cell">
                       <span className="text-sm text-slate-300">{log.action}</span>
                     </td>
                     <td className="table-cell hidden md:table-cell">
-                      <span className="text-xs font-mono text-slate-400">{log.target}</span>
+                      <span className="text-xs font-mono text-slate-400">{log.target || '-'}</span>
                     </td>
                     <td className="table-cell hidden lg:table-cell">
-                      <span className="text-xs font-mono text-slate-500">{log.ip}</span>
+                      <span className="text-xs font-mono text-slate-500">{log.ip || '-'}</span>
                     </td>
                     <td className="table-cell">
-                      <span className="text-xs text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
+                      <span className="text-xs text-slate-500">{new Date(log.timestamp || log.createdAt || '').toLocaleString()}</span>
                     </td>
                   </tr>
                 ))}
@@ -250,13 +271,12 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-400 block mb-1.5">Organization Name</label>
-                <input defaultValue="Acme Corporation" className="input" />
+                <input placeholder="Organization name" className="input" />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-400 block mb-1.5">Default Project</label>
                 <select className="input">
-                  <option>Acme Corp – External Perimeter</option>
-                  <option>Acme Corp – Internal Network</option>
+                  <option>Nexavise Workspace</option>
                 </select>
               </div>
               <div>

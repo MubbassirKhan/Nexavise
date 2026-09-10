@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Shield, Server, Clock, User, ChevronDown,
@@ -8,9 +8,8 @@ import { clsx } from 'clsx';
 import { SeverityBadge, StatusBadge } from '../components/ui/Badges';
 import { RiskScore } from '../components/ui/RiskScore';
 import { Card } from '../components/ui/index';
-import { mockFindings, mockUsers } from '../data/mockData';
-import type { FindingStatus } from '../types';
-import { assignFinding, updateFinding } from '../lib/api';
+import type { Finding, FindingStatus, User as UserRecord } from '../types';
+import { assignFinding, getFinding, getFindingAssignees, updateFinding } from '../lib/api';
 
 const STATUS_OPTIONS: { value: FindingStatus; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -24,11 +23,32 @@ const STATUS_OPTIONS: { value: FindingStatus; label: string }[] = [
 export const FindingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const finding = mockFindings.find(f => f.id === id);
+  const [finding, setFinding] = useState<Finding | null>(null);
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-  const [status, setStatus] = useState<FindingStatus>(finding?.status ?? 'open');
-  const [assignedTo, setAssignedTo] = useState(finding?.assignedTo ?? '');
+  const [status, setStatus] = useState<FindingStatus>('open');
+  const [assignedTo, setAssignedTo] = useState('');
   const [showStatusDrop, setShowStatusDrop] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    setIsLoading(true);
+    setHasError(false);
+    getFinding(id)
+      .then(item => {
+        setFinding(item);
+        setStatus(item.status);
+        setAssignedTo(item.assignedTo ?? '');
+      })
+      .catch(() => { setFinding(null); setUsers([]); setHasError(true); })
+      .finally(() => setIsLoading(false));
+    getFindingAssignees().then(setUsers).catch(() => setUsers([]));
+  }, [id]);
+
+  if (isLoading) return <div className="p-6 text-sm text-slate-400">Loading finding...</div>;
+  if (hasError) return <div className="p-6 text-sm text-red-300">Unable to load finding data. Please check the backend connection.</div>;
 
   if (!finding) {
     return (
@@ -112,7 +132,7 @@ export const FindingDetailPage: React.FC = () => {
             <span className="text-xs text-slate-500">Assigned</span>
           </div>
           <p className="text-sm font-medium text-white">
-            {mockUsers.find(u => u.id === assignedTo)?.name ?? 'Unassigned'}
+            {users.find(u => u.id === assignedTo)?.name ?? 'Unassigned'}
           </p>
         </div>
       </div>
@@ -243,7 +263,7 @@ export const FindingDetailPage: React.FC = () => {
               className="input"
             >
               <option value="">Unassigned</option>
-              {mockUsers.map(u => (
+              {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
             </select>

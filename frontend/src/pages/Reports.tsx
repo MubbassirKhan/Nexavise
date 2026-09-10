@@ -7,12 +7,13 @@ import {
 import { SeverityBadge } from '../components/ui/Badges';
 import { RiskScore } from '../components/ui/RiskScore';
 import { Card } from '../components/ui/index';
-import { mockFindings, mockAssets, mockRiskTrend, mockFindingsBySeverity } from '../data/mockData';
-import { createReport, getAttackPaths } from '../lib/api';
-import type { AttackPath, Project } from '../types';
+import { createReport, getAttackPaths, getRisk, getRiskTrend } from '../lib/api';
+import type { Asset, AttackPath, Finding, Project } from '../types';
 
 interface ReportsContext {
   selectedProject: Project;
+  assets: Asset[];
+  findings: Finding[];
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -28,16 +29,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const ReportsPage: React.FC = () => {
-  const { selectedProject } = useOutletContext<ReportsContext>();
+  const { selectedProject, assets, findings } = useOutletContext<ReportsContext>();
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
+  const [riskScore, setRiskScore] = useState(0);
+  const [riskTrend, setRiskTrend] = useState<{ date: string; score: number }[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
 
   useEffect(() => {
     setAttackPaths([]);
-    getAttackPaths(selectedProject.id)
-      .then(setAttackPaths)
-      .catch(() => setAttackPaths([]));
+    Promise.all([getAttackPaths(selectedProject.id), getRisk(selectedProject.id), getRiskTrend(selectedProject.id)])
+      .then(([paths, risk, trend]) => {
+        setAttackPaths(paths);
+        setRiskScore(risk.score);
+        setRiskTrend(trend.map(item => ({ ...item, date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
+      })
+      .catch(() => { setAttackPaths([]); setRiskScore(0); setRiskTrend([]); });
   }, [selectedProject.id]);
 
   const handleGenerate = async () => {
@@ -50,8 +57,14 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const criticalFindings = mockFindings.filter(f => f.severity === 'critical');
-  const resolvedCount = mockFindings.filter(f => f.status === 'resolved').length;
+  const criticalFindings = findings.filter(f => f.severity === 'critical');
+  const resolvedCount = findings.filter(f => f.status === 'resolved').length;
+  const findingsBySeverity = [
+    { name: 'Critical', value: findings.filter(f => f.severity === 'critical').length, fill: '#ef4444' },
+    { name: 'High', value: findings.filter(f => f.severity === 'high').length, fill: '#f97316' },
+    { name: 'Medium', value: findings.filter(f => f.severity === 'medium').length, fill: '#eab308' },
+    { name: 'Low', value: findings.filter(f => f.severity === 'low').length, fill: '#22c55e' },
+  ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -91,15 +104,15 @@ export const ReportsPage: React.FC = () => {
               <div className="w-2 h-2 bg-cyan-400 rounded-full" />
               <span className="text-xs font-medium text-cyan-400 uppercase tracking-wider">Executive Security Summary</span>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-1">Acme Corp – External Perimeter</h2>
-            <p className="text-sm text-slate-400">Report period: Aug 8 – Sep 7, 2026 · Generated {new Date().toLocaleDateString()}</p>
+            <h2 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h2>
+            <p className="text-sm text-slate-400">Current backend data · Generated {new Date().toLocaleDateString()}</p>
           </div>
-          <RiskScore score={78} size="lg" animate />
+          <RiskScore score={riskScore} size="lg" animate />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5 border-t border-white/8">
           {[
-            { label: 'Total Assets', value: mockAssets.length, icon: Server, color: 'text-cyan-400' },
-            { label: 'Total Findings', value: mockFindings.length, icon: Bug, color: 'text-orange-400' },
+            { label: 'Total Assets', value: assets.length, icon: Server, color: 'text-cyan-400' },
+            { label: 'Total Findings', value: findings.length, icon: Bug, color: 'text-orange-400' },
             { label: 'Attack Paths', value: attackPaths.length, icon: GitBranch, color: 'text-red-400' },
             { label: 'Resolved', value: resolvedCount, icon: TrendingUp, color: 'text-green-400' },
           ].map(s => (
@@ -118,7 +131,7 @@ export const ReportsPage: React.FC = () => {
         {/* Risk Trend */}
         <Card title="Risk Score Trend" subtitle="30-day rolling average">
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={mockRiskTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+            <AreaChart data={riskTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
@@ -129,7 +142,7 @@ export const ReportsPage: React.FC = () => {
               <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="score" stroke="#ef4444" strokeWidth={2} fill="url(#grad)" dot={false} />
+              <Area type="monotone" dataKey="score" stroke="#ef4444" strokeWidth={2} fill="url(#grad)" dot={{ r: 3, fill: '#ef4444' }} />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -137,7 +150,7 @@ export const ReportsPage: React.FC = () => {
         {/* Findings by severity */}
         <Card title="Findings Distribution">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={mockFindingsBySeverity} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+            <BarChart data={findingsBySeverity} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -148,7 +161,7 @@ export const ReportsPage: React.FC = () => {
                 </div>
               ) : null} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {mockFindingsBySeverity.map((entry, i) => (
+                {findingsBySeverity.map((entry, i) => (
                   <rect key={i} fill={entry.fill} />
                 ))}
               </Bar>
@@ -206,9 +219,9 @@ export const ReportsPage: React.FC = () => {
       <Card title="Technical Vulnerability Summary">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Most Affected Asset', value: '52.18.43.240', sub: '22 findings · Unauthorized', color: 'text-red-400' },
-            { label: 'Most Common Category', value: 'Database Exposure', sub: 'MySQL, PostgreSQL exposed', color: 'text-orange-400' },
-            { label: 'Highest Risk Finding', value: 'MySQL Internet Exposure', sub: 'Risk score: 98', color: 'text-red-400' },
+            { label: 'Most Affected Asset', value: assets[0]?.hostname || 'No asset data', sub: `${findings.length} backend findings`, color: 'text-red-400' },
+            { label: 'Most Common Category', value: 'Backend observations', sub: 'Derived from current findings', color: 'text-orange-400' },
+            { label: 'Highest Risk Finding', value: criticalFindings[0]?.title || 'No critical findings', sub: criticalFindings[0] ? `Risk score: ${criticalFindings[0].riskScore}` : 'No backend data', color: 'text-red-400' },
           ].map(s => (
             <div key={s.label} className="p-4 bg-white/4 border border-white/8 rounded-xl">
               <p className="text-xs text-slate-500 mb-2">{s.label}</p>
@@ -221,9 +234,9 @@ export const ReportsPage: React.FC = () => {
         <div className="mt-5 pt-5 border-t border-white/6 space-y-2">
           <p className="text-xs font-medium text-slate-400 mb-3">Assets by Exposure</p>
           {[
-            { label: 'Internet-facing', count: mockAssets.filter(a => a.exposure === 'internet').length, total: mockAssets.length, color: 'bg-red-500' },
-            { label: 'DMZ', count: mockAssets.filter(a => a.exposure === 'dmz').length, total: mockAssets.length, color: 'bg-orange-500' },
-            { label: 'Internal', count: mockAssets.filter(a => a.exposure === 'internal').length, total: mockAssets.length, color: 'bg-green-500' },
+            { label: 'Internet-facing', count: assets.filter(a => a.exposure === 'internet').length, total: assets.length, color: 'bg-red-500' },
+            { label: 'DMZ', count: assets.filter(a => a.exposure === 'dmz').length, total: assets.length, color: 'bg-orange-500' },
+            { label: 'Internal', count: assets.filter(a => a.exposure === 'internal').length, total: assets.length, color: 'bg-green-500' },
           ].map(s => (
             <div key={s.label} className="flex items-center gap-3">
               <span className="text-xs text-slate-400 w-28">{s.label}</span>

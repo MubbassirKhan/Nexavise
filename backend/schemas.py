@@ -67,6 +67,7 @@ class ScanCreate(BaseModel):
     projectId: str
     assetId: str
     scanner: Scanner
+    targetUrl: str | None = Field(default=None, max_length=2048)
     options: dict[str, Any] = Field(default_factory=dict)
 
 

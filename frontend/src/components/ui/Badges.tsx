@@ -71,6 +71,7 @@ interface ScanStatusBadgeProps {
 
 export const ScanStatusBadge: React.FC<ScanStatusBadgeProps> = ({ status }) => {
   const config: Record<ScanStatus, { bg: string; text: string; border: string; label: string }> = {
+    queued:    { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20', label: 'Queued' },
     pending:   { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20', label: 'Pending' },
     running:   { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20', label: 'Running' },
     completed: { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20', label: 'Completed' },

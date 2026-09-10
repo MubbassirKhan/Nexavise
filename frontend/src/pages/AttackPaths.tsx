@@ -52,12 +52,12 @@ const AttackGraph: React.FC<SVGGraphProps> = ({ nodes, edges, selectedNode, onNo
   };
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto overscroll-x-contain">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${viewBoxW} ${viewBoxH}`}
-        className="w-full"
-        style={{ minHeight: 280, maxHeight: 380 }}
+        className="w-full min-w-[720px] sm:min-w-0"
+        style={{ minHeight: 280, maxHeight: 380, touchAction: 'pan-x' }}
       >
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
@@ -231,7 +231,7 @@ export const AttackPathsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-5 animate-fade-in">
+      <div className="p-4 sm:p-6 space-y-5 animate-fade-in">
         <div>
           <h1 className="text-xl font-bold text-white">Attack Paths</h1>
           <p className="text-sm text-slate-400 mt-0.5">Loading attack paths...</p>
@@ -243,7 +243,7 @@ export const AttackPathsPage: React.FC = () => {
 
   if (hasError) {
     return (
-      <div className="p-6 space-y-5 animate-fade-in">
+      <div className="p-4 sm:p-6 space-y-5 animate-fade-in">
         <div>
           <h1 className="text-xl font-bold text-white">Attack Paths</h1>
           <p className="text-sm text-slate-400 mt-0.5">Unable to load attack paths. Please check the backend connection.</p>
@@ -270,7 +270,7 @@ export const AttackPathsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-5 animate-fade-in">
+    <div className="p-4 sm:p-6 space-y-5 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-white">Attack Paths</h1>
@@ -280,11 +280,11 @@ export const AttackPathsPage: React.FC = () => {
       </div>
 
       {/* Alert */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+      <div className="flex items-start sm:items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
         <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
         <p className="text-sm text-red-300">
-          <strong>{attackPaths.filter(p => p.severity === 'critical').length} critical attack paths</strong> detected.
-          Immediate remediation required to prevent full compromise.
+          <strong>{attackPaths.filter(p => p.severity === 'critical').length} critical attack paths</strong> identified.
+          Review the affected assets and findings for prioritized remediation.
         </p>
       </div>
 
@@ -319,15 +319,15 @@ export const AttackPathsPage: React.FC = () => {
         <div className="xl:col-span-3 space-y-4">
           {/* Graph canvas */}
           <div className="bg-navy-800 border border-white/8 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-4 border-b border-white/6">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <SeverityBadge severity={selectedPath.severity} />
                   <span className="text-sm font-bold text-red-400">Risk Score: {selectedPath.riskScore}</span>
                 </div>
-                <h2 className="text-sm font-semibold text-white">{selectedPath.name}</h2>
+                <h2 className="text-sm font-semibold text-white break-words">{selectedPath.name}</h2>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-500">
+              <div className="flex items-center gap-4 text-xs text-slate-500 flex-shrink-0">
                 <span className="flex items-center gap-1.5">
                   <div className="w-4 h-0.5 bg-red-400 opacity-60" style={{ borderTop: '2px dashed' }} />
                   Attack path
@@ -347,14 +347,14 @@ export const AttackPathsPage: React.FC = () => {
             </div>
 
             {/* Node legend */}
-            <div className="px-5 py-3 border-t border-white/6 flex items-center gap-6 flex-wrap">
+            <div className="px-4 sm:px-5 py-3 border-t border-white/6 flex items-center gap-x-5 gap-y-2 flex-wrap">
               {Object.entries(NODE_CONFIG).map(([type, cfg]) => (
                 <div key={type} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded border" style={{ backgroundColor: cfg.bg, borderColor: cfg.border }} />
                   <span className="text-xs text-slate-500 capitalize">{type}</span>
                 </div>
               ))}
-              <span className="text-xs text-slate-600 ml-auto">Click nodes to inspect</span>
+              <span className="text-xs text-slate-600 sm:ml-auto">Click nodes to inspect</span>
             </div>
           </div>
 
@@ -363,9 +363,12 @@ export const AttackPathsPage: React.FC = () => {
             <Card title="Path Details">
               <div className="space-y-3">
                 {[
+                  { label: 'Asset', value: selectedPath.asset?.hostname || selectedPath.nodes.find(n => n.type === 'asset')?.label || 'Unknown asset', icon: Server },
+                  { label: 'Finding', value: selectedPath.finding?.title || selectedPath.nodes.find(n => n.type === 'vulnerability')?.label || 'Unknown finding', icon: AlertTriangle },
                   { label: 'Entry Point', value: selectedPath.entryPoint, icon: Globe },
                   { label: 'Target', value: selectedPath.target, icon: Target },
                   { label: 'Total Hops', value: `${selectedPath.hops} steps`, icon: GitBranch },
+                  { label: 'Risk Score', value: `${selectedPath.riskScore} · ${selectedPath.severity}`, icon: Shield },
                   { label: 'Discovered', value: new Date(selectedPath.discoveredAt).toLocaleDateString(), icon: null },
                 ].map(d => (
                   <div key={d.label} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
@@ -375,7 +378,7 @@ export const AttackPathsPage: React.FC = () => {
                 ))}
               </div>
               <div className="mt-4 pt-3 border-t border-white/6">
-                <p className="text-xs text-slate-500 font-medium mb-2">Why This Path Is Dangerous</p>
+                <p className="text-xs text-slate-500 font-medium mb-2">Why This Path Matters</p>
                 <p className="text-xs text-slate-400 leading-relaxed">{selectedPath.whyRisky}</p>
               </div>
             </Card>

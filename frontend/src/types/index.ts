@@ -56,8 +56,8 @@ export interface Asset {
 }
 
 // ── Scans ─────────────────────────────────────────────────────────────────────
-export type ScannerType = 'nmap' | 'nuclei';
-export type ScanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type ScannerType = 'nmap' | 'nuclei' | 'Nexavise HTTP Scanner';
+export type ScanStatus = 'queued' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface ScanOptions {
   portRange?: string;
@@ -164,6 +164,10 @@ export interface AttackPath {
   whyRisky: string;
   mitigations: string[];
   discoveredAt: string;
+  findingId?: string;
+  assetId?: string;
+  finding?: { id: string; title: string; severity: Severity; riskScore: number; remediation: string };
+  asset?: { id: string; hostname: string; exposure: string; authorized: boolean };
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────

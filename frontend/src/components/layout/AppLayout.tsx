@@ -5,40 +5,51 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import type { Project } from '../../types';
 import { getAssets, getFindings, getProjects, getStoredUser } from '../../lib/api';
-import { mockAssets, mockFindings, mockProjects, mockUsers } from '../../data/mockData';
 
 export const AppLayout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const storedUser = getStoredUser();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [selectedProject, setSelectedProject] = useState<Project>(mockProjects[0]);
-  const [dataVersion, setDataVersion] = useState(0);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [assets, setAssets] = useState<Awaited<ReturnType<typeof getAssets>>>([]);
+  const [findings, setFindings] = useState<Awaited<ReturnType<typeof getFindings>>>([]);
+  const [loadError, setLoadError] = useState(false);
 
-  const currentUser = storedUser || mockUsers[0];
+  const currentUser = storedUser!;
 
   useEffect(() => {
     getProjects().then(items => {
-      if (items.length) {
-        setProjects(items);
-        setSelectedProject(items[0]);
-      }
-    }).catch(() => undefined);
+      setProjects(items);
+      setSelectedProject(items[0] || null);
+    }).catch(() => setLoadError(true));
   }, []);
 
   useEffect(() => {
     if (!selectedProject?.id) return;
+    setLoadError(false);
     Promise.all([
       getAssets(selectedProject.id),
       getFindings(selectedProject.id),
-    ]).then(([assets, findings]) => {
-      mockAssets.splice(0, mockAssets.length, ...assets);
-      mockFindings.splice(0, mockFindings.length, ...findings);
-      setDataVersion(version => version + 1);
-    }).catch(() => undefined);
+    ]).then(([assetItems, findingItems]) => {
+      setAssets(assetItems);
+      setFindings(findingItems);
+    }).catch(() => {
+      setAssets([]);
+      setFindings([]);
+      setLoadError(true);
+    });
   }, [selectedProject]);
 
   if (!storedUser) return <Navigate to="/login" replace />;
+
+  if (!selectedProject) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-navy-950 text-sm text-slate-400">
+        {loadError ? 'Unable to load project data. Please check the backend connection.' : 'Loading project data...'}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-navy-950">
@@ -61,7 +72,7 @@ export const AppLayout: React.FC = () => {
           onMenuToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         />
         <main className="flex-1 overflow-y-auto">
-          <Outlet context={{ selectedProject, dataVersion }} />
+          <Outlet context={{ selectedProject, assets, findings }} />
         </main>
       </div>
     </div>

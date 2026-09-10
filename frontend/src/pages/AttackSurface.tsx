@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Plus, Server, Globe, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ExposureBadge } from '../components/ui/Badges';
 import { Modal, SlideOver } from '../components/ui/Modal';
 import { SearchInput, Select, Card, EmptyState } from '../components/ui/index';
-import { mockAssets } from '../data/mockData';
-import type { Asset, AssetType } from '../types';
+import type { Asset, AssetType, Project } from '../types';
 import { createAsset } from '../lib/api';
+
+interface AttackSurfaceContext {
+  selectedProject: Project;
+  assets: Asset[];
+}
 
 const TypeIcon: React.FC<{ type: AssetType; className?: string }> = ({ type, className }) => {
   const icons: Record<AssetType, React.ElementType> = {
@@ -17,6 +22,9 @@ const TypeIcon: React.FC<{ type: AssetType; className?: string }> = ({ type, cla
 };
 
 export const AttackSurfacePage: React.FC = () => {
+  const { selectedProject, assets } = useOutletContext<AttackSurfaceContext>();
+  const [assetItems, setAssetItems] = useState(assets);
+  useEffect(() => setAssetItems(assets), [assets, selectedProject.id]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [exposureFilter, setExposureFilter] = useState('');
@@ -29,7 +37,8 @@ export const AttackSurfacePage: React.FC = () => {
   // Add asset form state
   const [newAsset, setNewAsset] = useState({ hostname: '', ip: '', type: 'host', authorized: false });
 
-  const filtered = mockAssets.filter(a => {
+  const visibleAssets = assetItems.length || assets.length ? assetItems : assets;
+  const filtered = visibleAssets.filter(a => {
     const q = search.toLowerCase();
     const matchSearch = !q || a.hostname.toLowerCase().includes(q) || a.ip.includes(q) || a.technologies.some(t => t.toLowerCase().includes(q));
     const matchType = !typeFilter || a.type === typeFilter;
@@ -44,7 +53,7 @@ export const AttackSurfacePage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Attack Surface</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{mockAssets.length} assets tracked · {mockAssets.filter(a => a.authorized).length} authorized</p>
+          <p className="text-sm text-slate-400 mt-0.5">{visibleAssets.length} assets tracked · {visibleAssets.filter(a => a.authorized).length} authorized</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn-primary">
           <Plus className="w-4 h-4" /> Add Asset
@@ -52,11 +61,11 @@ export const AttackSurfacePage: React.FC = () => {
       </div>
 
       {/* Unauthorized warning */}
-      {mockAssets.some(a => !a.authorized) && (
+      {visibleAssets.some(a => !a.authorized) && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
           <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
           <p className="text-sm text-red-300">
-            <strong>{mockAssets.filter(a => !a.authorized).length} unauthorized asset(s)</strong> detected on your network. Review and authorize or remove them.
+            <strong>{visibleAssets.filter(a => !a.authorized).length} unauthorized asset(s)</strong> detected on your network. Review and authorize or remove them.
           </p>
           <button className="ml-auto btn-danger text-xs py-1">Review</button>
         </div>
@@ -107,8 +116,8 @@ export const AttackSurfacePage: React.FC = () => {
       {/* Asset count */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-slate-400">{filtered.length} assets</span>
-        {filtered.length !== mockAssets.length && (
-          <span className="text-xs text-slate-600">(filtered from {mockAssets.length})</span>
+        {filtered.length !== visibleAssets.length && (
+          <span className="text-xs text-slate-600">(filtered from {visibleAssets.length})</span>
         )}
       </div>
 
@@ -231,11 +240,11 @@ export const AttackSurfacePage: React.FC = () => {
                 if (!newAsset.hostname.trim() || !newAsset.authorized) return;
                 try {
                   const created = await createAsset({
-                    projectId: 'proj-1', hostname: newAsset.hostname, ip: newAsset.ip || null,
+                    projectId: selectedProject.id, hostname: newAsset.hostname, ip: newAsset.ip || null,
                     type: newAsset.type, authorized: true, status: 'active', exposure: 'internet',
                     technologies: [], ports: [], criticality: 3, tags: [],
                   });
-                  mockAssets.push(created);
+                  setAssetItems(previous => [...previous, created]);
                   setSelectedAsset(created);
                   setShowAddModal(false);
                   setConfirmAuth(false);

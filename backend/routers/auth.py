@@ -8,12 +8,17 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/login")
 def login(payload: LoginRequest):
-    user = next((item for item in store.users if item["email"].lower() == payload.email.lower() and item["password"] == payload.password), None)
-    if not user:
+    if store.supabase is not None:
+        response = store.supabase.table("users").select("*, roles(name)").eq("email", payload.email.lower()).limit(1).execute()
+        user = response.data[0] if response.data else None
+        role = (user or {}).get("roles") or {}
+        if user and user.get("password_hash") == payload.password:
+            safe_user = {"id": user["id"], "name": user.get("name", ""), "email": user.get("email", ""),
+                         "role": role.get("name", "analyst"), "organizationId": user.get("organization_id")}
+            store.log("login", user["id"])
+            return {"accessToken": user["id"], "tokenType": "bearer", "user": safe_user}
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    store.log("login", user["id"])
-    safe_user = {key: value for key, value in user.items() if key != "password"}
-    return {"accessToken": user["id"], "tokenType": "bearer", "user": safe_user}
+    raise HTTPException(status_code=503, detail="Supabase is not configured")
 
 
 @router.post("/logout")

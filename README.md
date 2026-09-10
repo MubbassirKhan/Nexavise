@@ -110,7 +110,7 @@ The SQL file creates the requested tables, relationships, constraints, indexes, 
 
 ### Current persistence status
 
-The MVP currently uses an in-memory `DemoStore` for API reads and writes. Supabase client initialization and the PostgreSQL schema are included, but the routers have not yet been migrated to Supabase queries. Data in the current demo store is reset when the backend restarts. Do not use this mode for real customer data until repository operations are migrated and tested against Supabase.
+When Supabase is configured, API reads, writes, authentication, project authorization, finding assignments, scans, and risk history use Supabase as the source of truth. The frontend sends `X-User-Id` on every authenticated request, and analyst findings are scoped to the logged-in analyst's assignments. Keep Supabase configured for persistence across browser refreshes and backend restarts; the local `DemoStore` remains only as a development fallback when Supabase is unavailable.
 
 ## End-to-End Workflow
 

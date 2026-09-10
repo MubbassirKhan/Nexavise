@@ -55,9 +55,11 @@ export const createScan = (payload: Record<string, unknown>) => api<Scan>('/api/
 export const cancelScan = (id: string) => api<Scan>(`/api/scans/${id}/cancel`, { method: 'POST' });
 export const getFindings = (projectId: string) => api<Finding[]>(`/api/findings?projectId=${encodeURIComponent(projectId)}`);
 export const getFinding = (id: string) => api<Finding>(`/api/findings/${id}`);
+export const getFindingAssignees = () => api<User[]>('/api/findings/assignees');
 export const updateFinding = (id: string, payload: Record<string, unknown>) => api<Finding>(`/api/findings/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 export const assignFinding = (id: string, userId: string) => api<Finding>(`/api/findings/${id}/assign`, { method: 'POST', body: JSON.stringify({ userId }) });
 export const getRisk = (projectId: string) => api<RiskOverview>(`/api/risk/overview?projectId=${encodeURIComponent(projectId)}`);
+export const getRiskTrend = (projectId: string) => api<{ date: string; score: number }[]>(`/api/risk/trend?projectId=${encodeURIComponent(projectId)}`);
 export const getAttackPaths = (projectId: string) => api<AttackPath[]>(`/api/attack-paths?projectId=${encodeURIComponent(projectId)}`);
 export const analyzeAttackPaths = (projectId: string) => api<{ paths: AttackPath[] }>(`/api/attack-paths/analyze?projectId=${encodeURIComponent(projectId)}`, { method: 'POST' });
 export const createReport = (projectId: string) => api<BackendReport>('/api/reports', { method: 'POST', body: JSON.stringify({ projectId, reportType: 'combined' }) });
