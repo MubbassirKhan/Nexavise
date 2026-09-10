@@ -140,9 +140,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button onClick={() => { navigate('/admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/6 transition-colors">
                 <User className="w-4 h-4" /> Profile
               </button>
-              <button onClick={() => { navigate('/admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/6 transition-colors">
-                <Settings className="w-4 h-4" /> Settings
-              </button>
+              {user.role === 'admin' && (
+                <button onClick={() => { navigate('/admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/6 transition-colors">
+                  <Settings className="w-4 h-4" /> Settings
+                </button>
+              )}
               <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/6 transition-colors">
                 <HelpCircle className="w-4 h-4" /> Help
               </button>

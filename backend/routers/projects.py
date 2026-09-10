@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database import new_id, now, store
-from deps import current_user
+from deps import current_user, require_admin
 from schemas import ProjectCreate, ProjectPatch
 
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
@@ -20,7 +20,7 @@ def list_projects(user: dict = Depends(current_user)):
 
 
 @router.post("", status_code=201)
-def create_project(payload: ProjectCreate, user: dict = Depends(current_user)):
+def create_project(payload: ProjectCreate, user: dict = Depends(require_admin)):
     project = {"id": new_id("proj"), **payload.model_dump(), "createdAt": now()}
     store.projects.append(project)
     store.log("project_added", user["id"], {"projectId": project["id"]})
@@ -36,7 +36,7 @@ def get_project(project_id: str, user: dict = Depends(current_user)):
 
 
 @router.patch("/{project_id}")
-def patch_project(project_id: str, payload: ProjectPatch, user: dict = Depends(current_user)):
+def patch_project(project_id: str, payload: ProjectPatch, user: dict = Depends(require_admin)):
     project = next((item for item in store.projects if item["id"] == project_id), None)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

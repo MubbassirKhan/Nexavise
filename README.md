@@ -191,8 +191,11 @@ Nexavise/
         └── types/
 ```
 
+# Go Live https://nexavise.vercel.app/login
 ## Security Notes
 
 This project is an internship/demo MVP. It does not implement production-grade password hashing, JWT validation, refresh tokens, rate limiting, or full organization-level authorization. The scanner layer performs safe mock checks only and does not implement exploitation, persistence, credential theft, or destructive actions.
 
 Before production use, add Supabase Auth or secure password hashing, signed token validation, row-level security policies, persistent repository methods, job queue management, secret rotation procedures, and comprehensive tests.
+
+uvicorn main:app --reload

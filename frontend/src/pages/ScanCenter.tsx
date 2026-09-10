@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, ScanLine, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ScanStatusBadge } from '../components/ui/Badges';
 import { Card, ProgressBar } from '../components/ui/index';
 import { Modal } from '../components/ui/Modal';
-import { mockScans, mockAssets } from '../data/mockData';
-import { cancelScan, createScan } from '../lib/api';
+import { cancelScan, createScan, getAssets, getScans } from '../lib/api';
+import type { Asset, Project, Scan } from '../types';
+import { useOutletContext } from 'react-router-dom';
+
+interface ScanCenterContext {
+  selectedProject: Project;
+}
 
 export const ScanCenterPage: React.FC = () => {
+  const { selectedProject } = useOutletContext<ScanCenterContext>();
+  const [scans, setScans] = useState<Scan[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [step, setStep] = useState<'form' | 'confirm'>('form');
   const [form, setForm] = useState({
@@ -21,17 +31,41 @@ export const ScanCenterPage: React.FC = () => {
     authorized: false,
   });
 
-  const selectedAsset = mockAssets.find(a => a.id === form.assetId);
+  const selectedAsset = assets.find(a => a.id === form.assetId);
+
+  const loadScanData = async () => {
+    setIsLoading(true);
+    setError(false);
+    try {
+      const [scanItems, assetItems] = await Promise.all([
+        getScans(selectedProject.id),
+        getAssets(selectedProject.id),
+      ]);
+      setScans(scanItems);
+      setAssets(assetItems);
+    } catch {
+      setScans([]);
+      setAssets([]);
+      setError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setForm(previous => ({ ...previous, assetId: '', authorized: false }));
+    void loadScanData();
+  }, [selectedProject.id]);
 
   const handleCreate = async () => {
     if (step === 'form') { setStep('confirm'); return; }
     if (!selectedAsset || !form.authorized) return;
     try {
-      const scan = await createScan({
+      await createScan({
         projectId: selectedAsset.projectId, assetId: selectedAsset.id, scanner: form.scanner,
         options: { portRange: form.portRange, timing: form.timing, scanType: form.scanType, templates: form.templates, severity: form.severity },
       });
-      mockScans.unshift(scan);
+      await loadScanData();
       setShowCreateModal(false);
       setStep('form');
     } catch (error) {
@@ -46,8 +80,8 @@ export const ScanCenterPage: React.FC = () => {
     return `${m}m ${s}s`;
   };
 
-  const runningScans = mockScans.filter(s => s.status === 'running');
-  const historyScans = mockScans.filter(s => s.status !== 'running' && s.status !== 'pending');
+  const runningScans = scans.filter(s => s.status === 'running' || s.status === 'pending');
+  const historyScans = scans.filter(s => s.status !== 'running' && s.status !== 'pending');
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">
@@ -55,15 +89,28 @@ export const ScanCenterPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Scan Center</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{mockScans.length} total scans · {runningScans.length} running</p>
+          <p className="text-sm text-slate-400 mt-0.5">{scans.length} total scans · {runningScans.length} running</p>
         </div>
         <button onClick={() => setShowCreateModal(true)} className="btn-primary">
           <Plus className="w-4 h-4" /> New Scan
         </button>
       </div>
 
+      {isLoading && (
+        <Card>
+          <p className="text-sm text-slate-400">Loading scan data...</p>
+        </Card>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-300">Unable to load scan data. Please check the backend connection.</p>
+        </div>
+      )}
+
       {/* Running scans */}
-      {runningScans.length > 0 && (
+      {!isLoading && !error && runningScans.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-slate-300 mb-3">Active Scans</h2>
           <div className="space-y-3">
@@ -82,8 +129,12 @@ export const ScanCenterPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <ScanStatusBadge status={scan.status} />
                     <button className="btn-icon" onClick={async () => {
-                      await cancelScan(scan.id);
-                      scan.status = 'cancelled';
+                      try {
+                        await cancelScan(scan.id);
+                        await loadScanData();
+                      } catch {
+                        setError(true);
+                      }
                     }}>
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -107,7 +158,7 @@ export const ScanCenterPage: React.FC = () => {
       )}
 
       {/* Scan History */}
-      <div>
+      {!isLoading && !error && <div>
         <h2 className="text-sm font-semibold text-slate-300 mb-3">Scan History</h2>
         <Card noPadding>
           <div className="overflow-x-auto">
@@ -125,7 +176,11 @@ export const ScanCenterPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {historyScans.map(scan => (
+                {historyScans.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">No scan history available.</td>
+                  </tr>
+                ) : historyScans.map(scan => (
                   <tr key={scan.id} className="table-row">
                     <td className="table-cell">
                       <div className="flex items-center gap-3">
@@ -183,7 +238,7 @@ export const ScanCenterPage: React.FC = () => {
             </table>
           </div>
         </Card>
-      </div>
+      </div>}
 
       {/* Create Scan Modal */}
       <Modal
@@ -214,7 +269,7 @@ export const ScanCenterPage: React.FC = () => {
               <label className="text-xs font-medium text-slate-400 block mb-1.5">Target Asset *</label>
               <select value={form.assetId} onChange={e => setForm(p => ({ ...p, assetId: e.target.value }))} className="input">
                 <option value="">Select authorized asset…</option>
-                {mockAssets.filter(a => a.authorized).map(a => (
+                {assets.filter(a => a.authorized).map(a => (
                   <option key={a.id} value={a.id}>{a.hostname} ({a.ip})</option>
                 ))}
               </select>

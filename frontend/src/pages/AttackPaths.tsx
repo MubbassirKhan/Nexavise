@@ -1,10 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GitBranch, AlertTriangle, Target, Server, Globe, Zap, Shield } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SeverityBadge } from '../components/ui/Badges';
-import { Card } from '../components/ui/index';
-import { mockAttackPaths } from '../data/mockData';
-import type { AttackPath, AttackNode, AttackEdge } from '../types';
+import { Card, LoadingState } from '../components/ui/index';
+import { getAttackPaths } from '../lib/api';
+import { useOutletContext } from 'react-router-dom';
+import type { AttackPath, AttackNode, AttackEdge, Project } from '../types';
+
+interface AttackPathsContext {
+  selectedProject: Project;
+}
 
 // Node type configs
 const NODE_CONFIG = {
@@ -189,10 +194,66 @@ const AttackGraph: React.FC<SVGGraphProps> = ({ nodes, edges, selectedNode, onNo
 };
 
 export const AttackPathsPage: React.FC = () => {
-  const [selectedPath, setSelectedPath] = useState<AttackPath | undefined>(mockAttackPaths[0]);
+  const { selectedProject } = useOutletContext<AttackPathsContext>();
+  const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const selectedPath = attackPaths.find(path => path.id === selectedPathId) ?? attackPaths[0];
+
+  useEffect(() => {
+    let active = true;
+    setAttackPaths([]);
+    setSelectedPathId(null);
+    setSelectedNode(null);
+    setIsLoading(true);
+    setHasError(false);
+
+    getAttackPaths(selectedProject.id)
+      .then(paths => {
+        if (active) setAttackPaths(paths);
+      })
+      .catch(() => {
+        if (active) {
+          setAttackPaths([]);
+          setHasError(true);
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedProject.id]);
 
   const selectedNodeData = selectedPath?.nodes.find(n => n.id === selectedNode);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-5 animate-fade-in">
+        <div>
+          <h1 className="text-xl font-bold text-white">Attack Paths</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Loading attack paths...</p>
+        </div>
+        <div className="bg-navy-800 border border-white/8 rounded-xl p-5"><LoadingState rows={4} /></div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="p-6 space-y-5 animate-fade-in">
+        <div>
+          <h1 className="text-xl font-bold text-white">Attack Paths</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Unable to load attack paths. Please check the backend connection.</p>
+        </div>
+        <div className="bg-navy-800 border border-red-500/20 rounded-xl p-10 text-center">
+          <p className="text-sm text-red-300">Unable to load attack paths. Please check the backend connection.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedPath) {
     return (
@@ -202,7 +263,7 @@ export const AttackPathsPage: React.FC = () => {
           <p className="text-sm text-slate-400 mt-0.5">No attack paths identified for this project.</p>
         </div>
         <div className="bg-navy-800 border border-white/8 rounded-xl p-10 text-center">
-          <p className="text-sm text-slate-400">Run an authorized scan and analyze attack paths to populate this view.</p>
+          <p className="text-sm text-slate-400">No attack paths identified for this project.</p>
         </div>
       </div>
     );
@@ -214,7 +275,7 @@ export const AttackPathsPage: React.FC = () => {
       <div>
         <h1 className="text-xl font-bold text-white">Attack Paths</h1>
         <p className="text-sm text-slate-400 mt-0.5">
-          {mockAttackPaths.length} attack paths identified · {mockAttackPaths.filter(p => p.severity === 'critical').length} critical
+          {attackPaths.length} attack paths identified · {attackPaths.filter(p => p.severity === 'critical').length} critical
         </p>
       </div>
 
@@ -222,7 +283,7 @@ export const AttackPathsPage: React.FC = () => {
       <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
         <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
         <p className="text-sm text-red-300">
-          <strong>{mockAttackPaths.filter(p => p.severity === 'critical').length} critical attack paths</strong> detected.
+          <strong>{attackPaths.filter(p => p.severity === 'critical').length} critical attack paths</strong> detected.
           Immediate remediation required to prevent full compromise.
         </p>
       </div>
@@ -231,10 +292,10 @@ export const AttackPathsPage: React.FC = () => {
         {/* Attack path list (left) */}
         <div className="xl:col-span-1 space-y-2">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">Attack Paths</p>
-          {mockAttackPaths.map(path => (
+          {attackPaths.map(path => (
             <button
               key={path.id}
-              onClick={() => { setSelectedPath(path); setSelectedNode(null); }}
+              onClick={() => { setSelectedPathId(path.id); setSelectedNode(null); }}
               className={clsx(
                 'w-full text-left p-4 rounded-xl border transition-all',
                 selectedPath.id === path.id

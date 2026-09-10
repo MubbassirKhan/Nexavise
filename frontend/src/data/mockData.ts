@@ -1,5 +1,5 @@
 import type {
-  Asset, Scan, Finding, AttackPath, Project, User, Notification,
+  Asset, Finding, Project, User, Notification,
 } from '../types';
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
@@ -144,51 +144,6 @@ export const mockAssets: Asset[] = [
     riskScore: 88, findingCount: 16, criticalCount: 3, highCount: 5, mediumCount: 5, lowCount: 3,
     authorized: true, lastSeen: '2026-09-06T14:00:00Z', createdAt: '2025-11-01T09:00:00Z',
     tags: ['legacy', 'eol'], os: 'Windows Server 2008',
-  },
-];
-
-// ─── Scans ────────────────────────────────────────────────────────────────────
-export const mockScans: Scan[] = [
-  {
-    id: 's1', projectId: 'proj-1', assetId: 'a5', assetHostname: 'dev-server.acmecorp.com',
-    scanner: 'nuclei', status: 'running', progress: 63,
-    options: { templates: ['cves', 'misconfigs', 'exposed-panels'], severity: ['critical', 'high', 'medium'] },
-    startedAt: '2026-09-07T11:00:00Z', authorized: true, createdBy: 'Alex Mercer',
-  },
-  {
-    id: 's2', projectId: 'proj-1', assetId: 'a1', assetHostname: 'api.acmecorp.com',
-    scanner: 'nuclei', status: 'completed', progress: 100,
-    options: { templates: ['cves', 'exposures'], severity: ['critical', 'high'] },
-    startedAt: '2026-09-07T08:00:00Z', completedAt: '2026-09-07T08:47:00Z',
-    duration: 2820, findingsCount: 14, newFindings: 3, authorized: true, createdBy: 'Priya Nair',
-  },
-  {
-    id: 's3', projectId: 'proj-1', assetId: 'a2', assetHostname: 'portal.acmecorp.com',
-    scanner: 'nmap', status: 'completed', progress: 100,
-    options: { portRange: '1-65535', timing: 'T4', scanType: 'SYN' },
-    startedAt: '2026-09-06T20:00:00Z', completedAt: '2026-09-06T20:22:00Z',
-    duration: 1320, findingsCount: 21, newFindings: 5, authorized: true, createdBy: 'Declan Walsh',
-  },
-  {
-    id: 's4', projectId: 'proj-1', assetId: 'a7', assetHostname: '52.18.43.240',
-    scanner: 'nmap', status: 'completed', progress: 100,
-    options: { portRange: '1-10000', timing: 'T3', scanType: 'SYN' },
-    startedAt: '2026-09-06T18:00:00Z', completedAt: '2026-09-06T18:14:00Z',
-    duration: 840, findingsCount: 22, newFindings: 22, authorized: true, createdBy: 'Alex Mercer',
-  },
-  {
-    id: 's5', projectId: 'proj-1', assetId: 'a8', assetHostname: 'legacy-app.acmecorp.com',
-    scanner: 'nuclei', status: 'failed', progress: 34,
-    options: { templates: ['cves'], severity: ['critical', 'high', 'medium', 'low'] },
-    startedAt: '2026-09-06T15:00:00Z', completedAt: '2026-09-06T15:08:00Z',
-    duration: 480, authorized: true, createdBy: 'Sofia Chen',
-  },
-  {
-    id: 's6', projectId: 'proj-1', assetId: 'a3', assetHostname: 'mail.acmecorp.com',
-    scanner: 'nuclei', status: 'completed', progress: 100,
-    options: { templates: ['exposed-panels', 'misconfigs'], severity: ['critical', 'high', 'medium'] },
-    startedAt: '2026-09-05T10:00:00Z', completedAt: '2026-09-05T10:31:00Z',
-    duration: 1860, findingsCount: 9, newFindings: 2, authorized: true, createdBy: 'Priya Nair',
   },
 ];
 
@@ -398,8 +353,8 @@ export const mockFindings: Finding[] = [
   },
 ];
 
-// ─── Attack Paths ─────────────────────────────────────────────────────────────
-export const mockAttackPaths: AttackPath[] = [
+/* Legacy attack-path fixtures retained only as historical reference. The API is authoritative.
+const legacyAttackPaths = [
   {
     id: 'ap1',
     projectId: 'proj-1',
@@ -485,7 +440,7 @@ export const mockAttackPaths: AttackPath[] = [
       { id: 'e5', source: 'n5', target: 'n6', label: 'full access' },
     ],
   },
-];
+]; */
 
 // ─── Risk trend (30 days) ─────────────────────────────────────────────────────
 export const mockRiskTrend = [

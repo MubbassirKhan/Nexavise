@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Download, FileText, TrendingUp, Server, Bug, GitBranch } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -6,8 +7,13 @@ import {
 import { SeverityBadge } from '../components/ui/Badges';
 import { RiskScore } from '../components/ui/RiskScore';
 import { Card } from '../components/ui/index';
-import { mockFindings, mockAssets, mockAttackPaths, mockRiskTrend, mockFindingsBySeverity } from '../data/mockData';
-import { createReport } from '../lib/api';
+import { mockFindings, mockAssets, mockRiskTrend, mockFindingsBySeverity } from '../data/mockData';
+import { createReport, getAttackPaths } from '../lib/api';
+import type { AttackPath, Project } from '../types';
+
+interface ReportsContext {
+  selectedProject: Project;
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -22,13 +28,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const ReportsPage: React.FC = () => {
+  const { selectedProject } = useOutletContext<ReportsContext>();
+  const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+
+  useEffect(() => {
+    setAttackPaths([]);
+    getAttackPaths(selectedProject.id)
+      .then(setAttackPaths)
+      .catch(() => setAttackPaths([]));
+  }, [selectedProject.id]);
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      await createReport('proj-1');
+      await createReport(selectedProject.id);
       setGenerated(true);
     } finally {
       setGenerating(false);
@@ -85,7 +100,7 @@ export const ReportsPage: React.FC = () => {
           {[
             { label: 'Total Assets', value: mockAssets.length, icon: Server, color: 'text-cyan-400' },
             { label: 'Total Findings', value: mockFindings.length, icon: Bug, color: 'text-orange-400' },
-            { label: 'Attack Paths', value: mockAttackPaths.length, icon: GitBranch, color: 'text-red-400' },
+            { label: 'Attack Paths', value: attackPaths.length, icon: GitBranch, color: 'text-red-400' },
             { label: 'Resolved', value: resolvedCount, icon: TrendingUp, color: 'text-green-400' },
           ].map(s => (
             <div key={s.label} className="flex items-center gap-3">
@@ -168,7 +183,7 @@ export const ReportsPage: React.FC = () => {
       {/* Top attack paths */}
       <Card title="Top Attack Paths" subtitle="Prioritized by risk score">
         <div className="space-y-3">
-          {mockAttackPaths.map((ap, i) => (
+          {attackPaths.map((ap, i) => (
             <div key={ap.id} className="flex items-start gap-4 p-4 bg-white/4 border border-white/6 rounded-xl">
               <div className="w-8 h-8 bg-red-500/15 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-bold text-red-400">#{i + 1}</span>

@@ -21,10 +21,12 @@ interface SidebarProps {
   onToggle: () => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
+  isAdmin: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMobileClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMobileClose, isAdmin }) => {
   const navigate = useNavigate();
+  const visibleNavItems = isAdmin ? navItems : navItems.filter(item => item.to !== '/admin');
 
   return (
     <>
@@ -55,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpe
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {visibleNavItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
@@ -82,8 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpe
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-blue-300 truncate">Scan Active</p>
-              <p className="text-xs text-slate-500 truncate">dev-server · 63%</p>
+              <p className="text-xs font-medium text-blue-300 truncate">Scan Center</p>
+              <p className="text-xs text-slate-500 truncate">View current scan activity</p>
             </div>
             <Zap className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
           </div>

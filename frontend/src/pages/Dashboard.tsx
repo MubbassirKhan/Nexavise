@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import {
   ShieldAlert, Server, Activity, Plus, ScanLine, Eye,
   TrendingUp, AlertTriangle,
@@ -13,9 +14,15 @@ import { RiskScore } from '../components/ui/RiskScore';
 import { SeverityBadge, ScanStatusBadge } from '../components/ui/Badges';
 import { Card } from '../components/ui/index';
 import {
-  mockAssets, mockFindings, mockScans, mockAttackPaths,
+  mockAssets, mockFindings,
   mockRiskTrend, mockFindingsBySeverity,
 } from '../data/mockData';
+import { getAttackPaths, getScans } from '../lib/api';
+import type { AttackPath, Project, Scan } from '../types';
+
+interface DashboardContext {
+  selectedProject: Project;
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -35,10 +42,29 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedProject } = useOutletContext<DashboardContext>();
+  const [scans, setScans] = useState<Scan[]>([]);
+  const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
+  const [scanError, setScanError] = useState(false);
+
+  useEffect(() => {
+    setScanError(false);
+    Promise.all([getScans(selectedProject.id), getAttackPaths(selectedProject.id)])
+      .then(([scanItems, pathItems]) => {
+        setScans(scanItems);
+        setAttackPaths(pathItems);
+      })
+      .catch(() => {
+        setScans([]);
+        setAttackPaths([]);
+        setScanError(true);
+      });
+  }, [selectedProject.id]);
+
   const criticalFindings = mockFindings.filter(f => f.severity === 'critical' && f.status !== 'resolved');
   const highFindings = mockFindings.filter(f => f.severity === 'high' && f.status !== 'resolved');
   const activeAssets = mockAssets.filter(a => a.status === 'active');
-  const recentScans = mockScans.slice(0, 4);
+  const recentScans = scans.slice(0, 4);
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -79,8 +105,8 @@ export const DashboardPage: React.FC = () => {
         <StatCard title="High Findings" value={highFindings.length} subtitle="High severity open"
           icon={AlertTriangle} accent="orange"
           onClick={() => navigate('/vulnerabilities')} />
-        <StatCard title="Active Scans" value={mockScans.filter(s => s.status === 'running').length}
-          subtitle="1 in progress" icon={Activity} accent="blue" />
+        <StatCard title="Active Scans" value={scans.filter(s => s.status === 'running' || s.status === 'pending').length}
+          subtitle="From Scan Center" icon={Activity} accent="blue" />
       </div>
 
       {/* Charts row */}
@@ -225,7 +251,9 @@ export const DashboardPage: React.FC = () => {
             </button>
           }>
             <div className="space-y-3">
-              {recentScans.map(scan => (
+              {scanError && <p className="text-xs text-red-400">Unable to load scan data. Please check the backend connection.</p>}
+              {!scanError && recentScans.length === 0 && <p className="text-xs text-slate-500">No scans available.</p>}
+              {!scanError && recentScans.map(scan => (
                 <div key={scan.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/4 transition-colors">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                     scan.scanner === 'nuclei' ? 'bg-purple-500/15 border border-purple-500/20' : 'bg-cyan-500/15 border border-cyan-500/20'
@@ -249,7 +277,7 @@ export const DashboardPage: React.FC = () => {
             </button>
           }>
             <div className="space-y-2">
-              {mockAttackPaths.map(ap => (
+              {attackPaths.map(ap => (
                 <div
                   key={ap.id}
                   className="p-2.5 rounded-lg bg-white/4 border border-white/6 hover:border-white/12 cursor-pointer transition-all"
